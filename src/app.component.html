@@ -1,0 +1,646 @@
+<main class="min-h-screen bg-zinc-950 text-zinc-100 flex p-4 sm:p-8 font-sans gap-8">
+  <!-- Left Controls Column -->
+  <div class="flex flex-col gap-3 w-80 pt-4 shrink-0 bg-zinc-900 p-6 rounded-2xl shadow-xl border border-zinc-800">
+    <div class="flex items-center justify-center gap-2 mb-6">
+      <mat-icon class="text-sky-500">architecture</mat-icon>
+      <h1 class="text-sm font-bold tracking-widest uppercase text-zinc-400">LVP Architect</h1>
+    </div>
+    
+    <div class="grid grid-cols-2 gap-3">
+        <button 
+          (click)="undo()" 
+          [disabled]="!canUndo()"
+          class="w-full px-4 py-2 text-xs font-bold uppercase tracking-wider text-zinc-300 bg-zinc-800 rounded-xl shadow-sm transition-all hover:bg-zinc-700 disabled:opacity-20 disabled:cursor-not-allowed flex items-center justify-center gap-2 border border-zinc-700">
+          <mat-icon class="text-sm">undo</mat-icon>
+          Undo
+        </button>
+        <button 
+          (click)="redo()"
+          [disabled]="!canRedo()"
+          class="w-full px-4 py-2 text-xs font-bold uppercase tracking-wider text-zinc-300 bg-zinc-800 rounded-xl shadow-sm transition-all hover:bg-zinc-700 disabled:opacity-20 disabled:cursor-not-allowed flex items-center justify-center gap-2 border border-zinc-700">
+          <mat-icon class="text-sm">redo</mat-icon>
+          Redo
+        </button>
+    </div>
+
+    <button 
+      (click)="closePolygon()" 
+      [disabled]="!canClose()"
+      class="w-full px-5 py-3 font-bold uppercase tracking-widest text-xs text-white bg-sky-600 rounded-xl shadow-lg transition-all hover:bg-sky-500 disabled:bg-zinc-800 disabled:text-zinc-600 disabled:cursor-not-allowed flex items-center justify-center gap-2 border border-sky-500/20">
+      <mat-icon>task_alt</mat-icon>
+      Close Boundary
+    </button>
+    
+    <div class="flex flex-col gap-2 border-t border-zinc-800 pt-4">
+      <h3 class="text-[10px] uppercase tracking-widest text-zinc-500 font-bold text-center mb-1">Import Geometry</h3>
+      <div class="flex bg-zinc-800 p-1 rounded-xl border border-zinc-700">
+        <button 
+          (click)="csvImportUnit.set('metric')"
+          [class.bg-zinc-700]="csvImportUnit() === 'metric'"
+          [class.text-white]="csvImportUnit() === 'metric'"
+          [class.text-zinc-500]="csvImportUnit() !== 'metric'"
+          class="flex-1 py-1.5 text-[10px] font-bold rounded-lg transition-all">METRIC</button>
+        <button 
+          (click)="csvImportUnit.set('imperial')"
+          [class.bg-zinc-700]="csvImportUnit() === 'imperial'"
+          [class.text-white]="csvImportUnit() === 'imperial'"
+          [class.text-zinc-500]="csvImportUnit() !== 'imperial'"
+          class="flex-1 py-1.5 text-[10px] font-bold rounded-lg transition-all">IMPERIAL</button>
+      </div>
+      <button 
+        (click)="polygonFileInput.click()"
+        class="w-full px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-zinc-300 bg-zinc-800 rounded-xl shadow-sm transition-all hover:bg-zinc-700 flex items-center justify-center gap-2 border border-zinc-700">
+        <mat-icon>upload</mat-icon>
+        Load CSV
+      </button>
+    </div>
+    <input #polygonFileInput type="file" (change)="onPolygonFileSelected($event)" accept=".csv" class="hidden" />
+    <button 
+      (click)="clear()"
+      [disabled]="!canClear()"
+      class="w-full px-5 py-2.5 font-bold uppercase tracking-widest text-[10px] text-zinc-400 hover:text-rose-400 transition-all disabled:opacity-0 flex items-center justify-center gap-2 mt-auto">
+      <mat-icon class="text-sm">delete_sweep</mat-icon>
+      Clear All
+    </button>
+    
+    <div class="border-t border-zinc-800 pt-4 space-y-3">
+        <h3 class="text-[10px] uppercase tracking-widest text-zinc-500 font-bold text-center mb-1">Draw Tools</h3>
+        <div class="flex flex-col gap-2">
+          @if (isDrawingCorridor()) {
+            <div class="text-[10px] text-sky-400 text-center animate-pulse font-bold uppercase tracking-tighter">
+              {{ currentCorridorPoints().length === 0 ? 'Set Start Point' : 'Set End Point' }}
+            </div>
+          }
+          <button
+            (click)="toggleCorridorDrawingMode()"
+            [disabled]="isDrawingWall()"
+            [class.bg-zinc-800]="!isDrawingCorridor()"
+            [class.border-zinc-700]="!isDrawingCorridor()"
+            [class.bg-rose-900/40]="isDrawingCorridor()"
+            [class.border-rose-500/50]="isDrawingCorridor()"
+            [class.text-rose-400]="isDrawingCorridor()"
+            class="w-full px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-zinc-300 rounded-xl shadow-md transition-all hover:opacity-90 flex items-center justify-center gap-2 disabled:opacity-10 disabled:cursor-not-allowed border">
+            <mat-icon class="text-sm">{{ isDrawingCorridor() ? 'close' : 'straighten' }}</mat-icon>
+            {{ isDrawingCorridor() ? 'Cancel' : '2m Corridor' }}
+          </button>
+        </div>
+
+        <div class="flex flex-col gap-2">
+          @if (isDrawingWall()) {
+            <div class="text-[10px] text-amber-400 text-center animate-pulse font-bold uppercase tracking-tighter">
+              {{ currentWallPoints().length < 3 ? 'Add 3+ Points' : 'Close to finish' }}
+            </div>
+          }
+          <button
+            (click)="toggleWallDrawingMode()"
+            [disabled]="isDrawingCorridor()"
+            [class.bg-zinc-800]="!isDrawingWall()"
+            [class.border-zinc-700]="!isDrawingWall()"
+            [class.bg-rose-900/40]="isDrawingWall()"
+            [class.border-rose-500/50]="isDrawingWall()"
+            [class.text-rose-400]="isDrawingWall()"
+            class="w-full px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-zinc-300 rounded-xl shadow-md transition-all hover:opacity-90 flex items-center justify-center gap-2 disabled:opacity-10 disabled:cursor-not-allowed border">
+            <mat-icon class="text-sm">{{ isDrawingWall() ? 'close' : 'square_foot' }}</mat-icon>
+            {{ isDrawingWall() ? 'Cancel' : 'Add Obstacle' }}
+          </button>
+        </div>
+    </div>
+
+    <div class="border-t border-zinc-800 pt-4 space-y-3">
+      <h3 class="text-[10px] uppercase tracking-widest text-zinc-500 font-bold text-center mb-1">Space Planning</h3>
+      <button
+        (click)="salesAreaFileInput.click()"
+        [disabled]="isDrawingCorridor()"
+        class="w-full px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-zinc-300 bg-zinc-800 rounded-xl shadow-sm transition-all hover:bg-zinc-700 flex items-center justify-center gap-2 border border-zinc-700 disabled:opacity-20">
+        <mat-icon>upload_file</mat-icon>
+        Load Zones
+      </button>
+      <input #salesAreaFileInput type="file" (change)="onSalesAreaFileSelected($event)" accept=".csv" class="hidden" />
+
+      <button
+        (click)="isSettingEntrance.set(!isSettingEntrance())"
+        [disabled]="!isClosed()"
+        [class.bg-amber-600]="isSettingEntrance()"
+        [class.text-white]="isSettingEntrance()"
+        [class.border-amber-500]="isSettingEntrance()"
+        [class.bg-zinc-800]="!isSettingEntrance()"
+        [class.text-zinc-300]="!isSettingEntrance()"
+        [class.border-zinc-700]="!isSettingEntrance()"
+        class="w-full px-5 py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl shadow-sm transition-all hover:bg-zinc-700 flex items-center justify-center gap-2 border disabled:opacity-20">
+        <mat-icon>{{ isSettingEntrance() ? 'close' : 'login' }}</mat-icon>
+        {{ isSettingEntrance() ? 'Cancel' : 'Set Entrance' }}
+      </button>
+      
+      <div class="grid grid-cols-2 gap-2">
+        <button
+          (click)="rulesFileInput.click()"
+          class="w-full px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-zinc-300 bg-zinc-800 rounded-xl shadow-sm transition-all hover:bg-zinc-700 flex items-center justify-center gap-2 border border-zinc-700">
+          <mat-icon class="text-sm">rule</mat-icon>
+          Load Rules
+        </button>
+        <input #rulesFileInput type="file" (change)="onRulesFileSelected($event)" accept=".txt" class="hidden" />
+        @if (rulesText()) {
+          <div class="col-span-2 flex items-center justify-center gap-2 py-1 bg-emerald-500/10 rounded-lg border border-emerald-500/20">
+            <mat-icon class="text-[10px] text-emerald-400">check_circle</mat-icon>
+            <span class="text-[9px] font-bold uppercase tracking-widest text-emerald-400">Rules Applied</span>
+            <button (click)="rulesText.set('')" class="hover:text-rose-400 transition-colors">
+              <mat-icon class="text-[10px]">close</mat-icon>
+            </button>
+          </div>
+        }
+
+        <button
+          (click)="generateAIProposal()"
+          [disabled]="salesAreaRequests().length === 0 || !isClosed() || isGeneratingAI()"
+          class="w-full px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-white bg-emerald-700 rounded-xl shadow-lg transition-all hover:bg-emerald-600 disabled:bg-zinc-800 disabled:text-zinc-600 disabled:cursor-not-allowed flex items-center justify-center gap-2 border border-emerald-500/20">
+          <mat-icon class="text-sm" [class.animate-spin]="isGeneratingAI()">{{ isGeneratingAI() ? 'sync' : 'auto_awesome' }}</mat-icon>
+          {{ isGeneratingAI() ? 'Thinking...' : 'AI Proposal' }}
+        </button>
+      </div>
+
+      <button
+        (click)="exportToExcel()"
+        [disabled]="drawnSalesAreas().length === 0"
+        class="w-full px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-zinc-900 bg-zinc-100 rounded-xl shadow-lg transition-all hover:bg-white flex items-center justify-center gap-2 disabled:bg-zinc-800 disabled:text-zinc-600 disabled:cursor-not-allowed">
+        <mat-icon>file_download</mat-icon>
+        Export Revit (XLSX)
+      </button>
+
+      <div class="flex flex-col gap-2 pt-2">
+        <div class="flex items-center justify-between px-2">
+          <label for="show-sales-areas" class="text-[10px] font-bold uppercase tracking-wider text-zinc-500 select-none cursor-pointer">
+              Show Zones
+          </label>
+          <input 
+              id="show-sales-areas" 
+              type="checkbox" 
+              [checked]="showSalesAreas()" 
+              (change)="toggleSalesAreaVisibility($event)"
+              class="h-4 w-4 rounded border-zinc-700 text-sky-600 focus:ring-sky-500 bg-zinc-800 cursor-pointer">
+        </div>
+
+        <div class="flex items-center justify-between px-2">
+          <label for="edit-sales-areas" class="text-[10px] font-bold uppercase tracking-wider text-zinc-500 select-none cursor-pointer">
+              Edit Zones
+          </label>
+          <input 
+              id="edit-sales-areas" 
+              type="checkbox" 
+              [checked]="isEditingSalesAreas()" 
+              (change)="isEditingSalesAreas.set($any($event.target).checked)"
+              class="h-4 w-4 rounded border-zinc-700 text-sky-600 focus:ring-sky-500 bg-zinc-800 cursor-pointer">
+        </div>
+      </div>
+    </div>
+
+    <div class="flex flex-col items-start space-y-2 mt-4 border-t border-zinc-800 pt-4">
+      <button 
+        (click)="toggleUnitSystem()" 
+        class="w-full px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-zinc-400 bg-zinc-800 rounded-xl shadow-sm transition-all hover:bg-zinc-700 flex items-center justify-center gap-2 border border-zinc-700">
+        <mat-icon class="text-sm">settings_overscan</mat-icon>
+        Units: {{ unitSystem() === 'metric' ? 'Metric (m)' : 'Imperial (ft)' }}
+      </button>
+
+      <div class="w-full flex items-center justify-between px-2 pt-2">
+        <label for="scale" class="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Scale (px/{{ unitLabel() }})</label>
+        <input 
+          id="scale"
+          type="number"
+          [value]="unitSystem() === 'metric' ? pixelsPerMeter() : (pixelsPerMeter() / 3.28084).toFixed(2)"
+          (change)="updateScale($event)"
+          min="1"
+          class="w-20 bg-zinc-800 text-zinc-100 rounded-lg p-1 text-center border border-zinc-700 focus:ring-1 focus:ring-sky-500 focus:outline-none text-xs font-mono"
+        />
+      </div>
+    </div>
+
+    @if (selectedVertexData(); as selection) {
+      <div 
+        class="flex flex-col items-start space-y-2 mt-4 border-t pt-4 p-4 bg-zinc-800/50 rounded-2xl border border-zinc-700 shadow-sm"
+        [class.border-sky-500/30]="selection.type === 'boundary'"
+        [class.border-sky-500/30]="selection.type === 'custom_corridor_centerline'"
+        >
+        <h3 class="text-[10px] font-bold uppercase tracking-widest w-full text-center mb-2 text-zinc-400"
+        >
+          Editing {{ selection.name }}
+        </h3>
+        <div class="grid grid-cols-2 gap-3 w-full">
+            <div class="flex items-center gap-2">
+              <span class="text-zinc-500 font-mono text-[10px]">X:</span>
+              <input 
+                [id]="'vertex-x-' + selection.type + '-' + selection.customCorridorId + '-' + selection.pointIndex"
+                type="number"
+                [value]="selection.point.x"
+                (input)="updateVertexCoordinate('x', $event)"
+                (blur)="saveState()"
+                class="w-full bg-zinc-900 text-zinc-100 rounded-lg p-1.5 text-center border border-zinc-700 focus:ring-1 focus:outline-none shadow-sm text-xs font-mono"
+                [class.focus:ring-sky-500]="selection.type === 'boundary'"
+                [class.focus:ring-sky-500]="selection.type === 'custom_corridor_centerline'"
+              />
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="text-zinc-500 font-mono text-[10px]">Y:</span>
+              <input 
+                [id]="'vertex-y-' + selection.type + '-' + selection.customCorridorId + '-' + selection.pointIndex"
+                type="number"
+                [value]="-selection.point.y"
+                (input)="updateVertexCoordinate('y', $event)"
+                (blur)="saveState()"
+                class="w-full bg-zinc-900 text-zinc-100 rounded-lg p-1.5 text-center border border-zinc-700 focus:ring-1 focus:outline-none shadow-sm text-xs font-mono"
+                [class.focus:ring-sky-500]="selection.type === 'boundary'"
+                [class.focus:ring-sky-500]="selection.type === 'custom_corridor_centerline'"
+              />
+            </div>
+        </div>
+        <div class="w-full flex justify-between px-1 pt-1">
+            <span class="text-[9px] text-zinc-500 uppercase font-bold">{{ formatCoordinate(selection.point.x) }}</span>
+            <span class="text-[9px] text-zinc-500 uppercase font-bold">{{ formatCoordinate(-selection.point.y) }}</span>
+        </div>
+      </div>
+    }
+  </div>
+
+  <!-- Right Canvas Column -->
+  <div class="flex-1 flex flex-col">
+    <div class="mb-4 h-10 flex items-center justify-between">
+      <div class="flex items-center gap-4">
+        @if (isClosed() && polygonArea() > 0) {
+          <p class="text-sm text-sky-400 font-bold bg-sky-500/10 px-4 py-1.5 rounded-full border border-sky-500/20 uppercase tracking-widest">
+            Total Area: {{ formatArea(polygonArea()) }}
+          </p>
+        }
+      </div>
+      
+      <div class="flex items-center gap-3">
+        <button 
+          (click)="toggleViewMode()"
+          class="px-5 py-2 text-[10px] font-bold uppercase tracking-widest rounded-xl border transition-all flex items-center gap-2 shadow-lg"
+          [class.bg-sky-600]="viewMode() === '3d'"
+          [class.text-white]="viewMode() === '3d'"
+          [class.border-sky-500]="viewMode() === '3d'"
+          [class.bg-zinc-900]="viewMode() === '2d'"
+          [class.text-zinc-400]="viewMode() === '2d'"
+          [class.border-zinc-800]="viewMode() === '2d'"
+          [class.hover:bg-zinc-800]="viewMode() === '2d'"
+        >
+          <mat-icon class="text-lg">{{ viewMode() === '2d' ? '3d_rotation' : 'view_quilt' }}</mat-icon>
+          {{ viewMode() === '2d' ? '3D View' : '2D Layout' }}
+        </button>
+
+        @if (viewMode() === '2d') {
+          <div class="flex items-center gap-2 bg-zinc-900 px-3 py-1.5 rounded-xl border border-zinc-800 shadow-sm">
+            <span class="text-[10px] font-mono text-zinc-500">{{ (zoom() * 100).toFixed(0) }}%</span>
+            <button (click)="resetZoom()" class="text-zinc-500 hover:text-sky-400 transition-colors" title="Reset Zoom">
+              <mat-icon class="text-lg">center_focus_strong</mat-icon>
+            </button>
+          </div>
+        }
+      </div>
+    </div>
+
+    <div class="relative w-full flex-grow rounded-3xl overflow-hidden shadow-2xl border border-zinc-800 bg-zinc-950">
+      @if (viewMode() === '2d') {
+        <svg 
+          #svgContainer
+          (click)="handleCanvasClick($event)"
+          (mousemove)="handleMouseMove($event)"
+          (mousedown)="handleMouseDown($event)"
+          (mouseup)="handleMouseUp()"
+          (mouseleave)="handleMouseUp()"
+          (wheel)="handleWheel($event)"
+          class="absolute inset-0 w-full h-full bg-[radial-gradient(#27272a_1px,transparent_1px)] [background-size:24px_24px]"
+          [style.background-position]="(pan().x + svgWidth()/2) + 'px ' + (pan().y + svgHeight()/2) + 'px'"
+          [class.cursor-crosshair]="!isPanning() && !draggedVertex()"
+          [class.cursor-grabbing]="isPanning()">
+
+        <g [attr.transform]="'translate(' + (pan().x + svgWidth()/2) + ',' + (pan().y + svgHeight()/2) + ') scale(' + zoom() + ')'">
+          <!-- Visual Axes -->
+          <line [attr.x1]="-50000" y1="0" [attr.x2]="50000" y2="0" class="stroke-zinc-800" stroke-width="1" />
+          <line x1="0" [attr.y1]="-50000" x2="0" [attr.y2]="50000" class="stroke-zinc-800" stroke-width="1" />
+          <circle cx="0" cy="0" r="3" class="fill-zinc-700" />
+          
+          <!-- Render Sales Areas -->
+          @if (showSalesAreas()) {
+            @for (area of drawnSalesAreas(); track area.id) {
+              <g class="pointer-events-none">
+                 <g 
+                    [style.fill]="divisionColorMap().get(area.division) || '#808080'"
+                    class="opacity-40">
+                    <polygon 
+                      [attr.points]="getPolygonPoints(area.points)"
+                      class="stroke-zinc-900"
+                      stroke-width="1"
+                    />
+                  </g>
+                <text 
+                  [attr.x]="area.centroid.x"
+                  [attr.y]="area.centroid.y"
+                  class="fill-zinc-100 text-[9px] font-bold uppercase tracking-tighter"
+                  text-anchor="middle"
+                  style="paint-order: stroke; stroke: #09090b; stroke-width: 4px; stroke-linejoin: round;"
+                >
+                  <tspan>{{ area.division }}</tspan>
+                  <tspan [attr.x]="area.centroid.x" dy="1.2em">{{ area.name }}</tspan>
+                  <tspan [attr.x]="area.centroid.x" dy="1.2em" class="fill-sky-400">{{ formatArea(area.actualAreaM2) }}</tspan>
+                </text>
+              </g>
+              <!-- Interactive vertices for Sales Area -->
+              @if (isEditingSalesAreas()) {
+                @for(point of area.points; track $index; let pointIndex = $index) {
+                    <circle 
+                      [attr.cx]="point.x" 
+                      [attr.cy]="point.y" 
+                      [attr.r]="(draggedVertex()?.salesAreaId === area.id && draggedVertex()?.pointIndex === pointIndex) || (selectedVertex()?.salesAreaId === area.id && selectedVertex()?.pointIndex === pointIndex) ? 8 : 3"
+                      (mousedown)="startDrag($event, 'sales_area', pointIndex, undefined, undefined, area.id)"
+                      (click)="selectVertex($event, 'sales_area', pointIndex, undefined, undefined, area.id)"
+                      class="transition-all cursor-pointer stroke-zinc-900"
+                      [class.cursor-grab]="draggedVertex()?.salesAreaId === area.id && draggedVertex()?.pointIndex === pointIndex"
+                      [class.fill-sky-400]="(selectedVertex()?.salesAreaId === area.id && selectedVertex()?.pointIndex === pointIndex) || (draggedVertex()?.salesAreaId === area.id && draggedVertex()?.pointIndex === pointIndex)"
+                      [class.fill-zinc-600]="!((selectedVertex()?.salesAreaId === area.id && selectedVertex()?.pointIndex === pointIndex) || (draggedVertex()?.salesAreaId === area.id && draggedVertex()?.pointIndex === pointIndex))"
+                      stroke-width="1" />
+                }
+              }
+            }
+          }
+   <!-- Render Separation Lines -->
+            <!-- Removed as polygons now have strokes -->
+
+          <!-- Render Walls -->
+          @for(wall of walls(); track wall.id) {
+            <polygon 
+              [attr.points]="getPolygonPoints(wall.points)"
+              class="fill-rose-500/20 stroke-rose-500/40 pointer-events-none"
+              stroke-width="1.5"
+            />
+            @for(point of wall.points; track $index; let pointIndex = $index) {
+                <circle 
+                  [attr.cx]="point.x" 
+                  [attr.cy]="point.y" 
+                  [attr.r]="(draggedVertex()?.wallId === wall.id && draggedVertex()?.pointIndex === pointIndex) || (selectedVertex()?.wallId === wall.id && selectedVertex()?.pointIndex === pointIndex) ? 8 : 3"
+                  (mousedown)="startDrag($event, 'wall', pointIndex, undefined, wall.id)"
+                  (click)="selectVertex($event, 'wall', pointIndex, undefined, wall.id)"
+                  class="transition-all cursor-pointer stroke-zinc-900"
+                  [class.cursor-grab]="draggedVertex()?.wallId === wall.id && draggedVertex()?.pointIndex === pointIndex"
+                  [class.fill-rose-400]="(selectedVertex()?.wallId === wall.id && selectedVertex()?.pointIndex === pointIndex) || (draggedVertex()?.wallId === wall.id && draggedVertex()?.pointIndex === pointIndex)"
+                  [class.fill-zinc-600]="!((selectedVertex()?.wallId === wall.id && selectedVertex()?.pointIndex === pointIndex) || (draggedVertex()?.wallId === wall.id && draggedVertex()?.pointIndex === pointIndex))"
+                  stroke-width="1" />
+            }
+          }
+
+          <!-- Render Entrance -->
+          @if (entrance()) {
+            <g class="entrance-group">
+              <circle 
+                [attr.cx]="entrance()!.point.x" 
+                [attr.cy]="entrance()!.point.y" 
+                r="8" 
+                class="fill-amber-500 stroke-zinc-900" 
+                stroke-width="2" />
+              <text 
+                [attr.x]="entrance()!.point.x" 
+                [attr.y]="entrance()!.point.y - 12" 
+                class="fill-amber-500 text-[10px] font-bold uppercase tracking-widest" 
+                text-anchor="middle"
+                style="paint-order: stroke; stroke: #09090b; stroke-width: 4px; stroke-linejoin: round;"
+              >Entrance</text>
+            </g>
+          }
+
+          <!-- Render wall being actively drawn -->
+          @if (isDrawingWall() && currentWallPoints().length > 0) {
+            <polyline 
+              [attr.points]="getPolygonPoints(currentWallPoints())"
+              class="fill-none stroke-rose-500/50 stroke-1"
+              stroke-dasharray="4"
+            />
+            @for(point of currentWallPoints(); track $index) {
+              <circle [attr.cx]="point.x" [attr.cy]="point.y" r="3" class="fill-rose-500" />
+            }
+            @if (mousePosition()) {
+              @let last = currentWallPoints()[currentWallPoints().length - 1];
+              @let mouse = mousePosition();
+              <line 
+                [attr.x1]="last.x" [attr.y1]="last.y" 
+                [attr.x2]="mouse!.x" [attr.y2]="mouse!.y" 
+                class="stroke-rose-500/30 stroke-1"
+                stroke-dasharray="2"
+              />
+            }
+          }
+
+          <!-- Floating Area Label during Drag -->
+          @if (draggedVertex()?.type === 'sales_area' && mousePosition()) {
+            @let draggedArea = getDraggedSalesArea();
+            @if (draggedArea) {
+              <g [attr.transform]="'translate(' + (mousePosition()!.x + 15) + ',' + (mousePosition()!.y - 15) + ')'">
+                <rect x="0" y="-20" width="100" height="24" rx="6" class="fill-sky-600 shadow-lg" />
+                <text x="50" y="-4" text-anchor="middle" class="fill-white text-[12px] font-bold">
+                  {{ formatArea(draggedArea.actualAreaM2) }}
+                </text>
+              </g>
+            }
+          }
+
+          <!-- Render Custom Corridors -->
+          @for(corridor of customCorridors(); track corridor.id) {
+            <polygon 
+              [attr.points]="getPolygonPoints(corridor.boundary1) + ' ' + getPolygonPoints([...corridor.boundary2].reverse())"
+              class="fill-sky-500/10 stroke-sky-500/30 pointer-events-none"
+              stroke-width="1"
+            />
+             <!-- Centerline for editing -->
+            <polyline
+                [attr.points]="getPolygonPoints(corridor.centerline)"
+                class="fill-none stroke-sky-500/20 pointer-events-none"
+                stroke-width="1"
+                stroke-dasharray="4"
+            />
+            @for(point of corridor.centerline; track $index; let pointIndex = $index) {
+                <circle 
+                  [attr.cx]="point.x" 
+                  [attr.cy]="point.y" 
+                  [attr.r]="(draggedVertex()?.customCorridorId === corridor.id && draggedVertex()?.pointIndex === pointIndex) || (selectedVertex()?.customCorridorId === corridor.id && selectedVertex()?.pointIndex === pointIndex) ? 8 : 3"
+                  (mousedown)="startDrag($event, 'custom_corridor_centerline', pointIndex, corridor.id)"
+                  (click)="selectVertex($event, 'custom_corridor_centerline', pointIndex, corridor.id)"
+                  class="transition-all cursor-pointer stroke-zinc-900"
+                  [class.cursor-grab]="draggedVertex()?.customCorridorId === corridor.id && draggedVertex()?.pointIndex === pointIndex"
+                  [class.fill-sky-400]="(selectedVertex()?.customCorridorId === corridor.id && selectedVertex()?.pointIndex === pointIndex) || (draggedVertex()?.customCorridorId === corridor.id && draggedVertex()?.pointIndex === pointIndex)"
+                  [class.fill-zinc-600]="!((selectedVertex()?.customCorridorId === corridor.id && selectedVertex()?.pointIndex === pointIndex) || (draggedVertex()?.customCorridorId === corridor.id && draggedVertex()?.pointIndex === pointIndex))"
+                  stroke-width="1" />
+            }
+          }
+
+          <!-- Render corridor being actively drawn -->
+          @if (isDrawingCorridor() && currentCorridorPoints().length > 0) {
+            @let start = currentCorridorPoints()[0];
+            @let mouse = mousePosition();
+            
+            <circle [attr.cx]="start.x" [attr.cy]="start.y" r="3" class="fill-sky-500" />
+            
+            @if (mouse) {
+              <line 
+                [attr.x1]="start.x" [attr.y1]="start.y" 
+                [attr.x2]="mouse.x" [attr.y2]="mouse.y" 
+                class="stroke-sky-500/50 stroke-1"
+                stroke-dasharray="4"
+              />
+              <text 
+                [attr.x]="(start.x + mouse.x) / 2" 
+                [attr.y]="(start.y + mouse.y) / 2" 
+                dy="-10"
+                class="fill-sky-400 text-[9px] font-bold font-mono"
+                text-anchor="middle"
+                style="paint-order: stroke; stroke: #09090b; stroke-width: 4px;"
+              >
+                {{ corridorPreviewLength().toFixed(2) }} m
+              </text>
+            }
+          }
+
+          <!-- The main boundary polygon -->
+          @if (isClosed()) {
+            <polygon 
+              [attr.points]="svgPoints()" 
+              class="fill-sky-500/5 stroke-sky-500/50 pointer-events-none"
+              stroke-width="2" />
+          } @else {
+            <polyline 
+              [attr.points]="svgPoints()" 
+              class="fill-none stroke-zinc-600 pointer-events-none"
+              stroke-width="2" 
+              stroke-linejoin="round"
+              stroke-linecap="round" />
+          }
+
+          <!-- Circles representing each vertex of the main polygon -->
+          @for (point of points(); track $index) {
+            <circle 
+              [attr.cx]="point.x" 
+              [attr.cy]="point.y" 
+              [attr.r]="(draggedVertex()?.pointIndex === $index && draggedVertex()?.type === 'boundary') || (selectedVertex()?.pointIndex === $index && selectedVertex()?.type === 'boundary') ? 8 : 4"
+              (mousedown)="startDrag($event, 'boundary', $index)"
+              (click)="selectVertex($event, 'boundary', $index)"
+              class="transition-all cursor-pointer stroke-zinc-900"
+              [class.cursor-grab]="draggedVertex()?.pointIndex === $index && draggedVertex()?.type === 'boundary'"
+              [class.fill-sky-500]="(selectedVertex()?.pointIndex === $index && selectedVertex()?.type === 'boundary') || (draggedVertex()?.pointIndex === $index && draggedVertex()?.type === 'boundary')"
+              [class.fill-zinc-400]="!((selectedVertex()?.pointIndex === $index && selectedVertex()?.type === 'boundary') || (draggedVertex()?.pointIndex === $index && draggedVertex()?.type === 'boundary'))"
+              stroke-width="1" />
+          }
+          
+          <!-- Text labels for each line segment's length -->
+          @for (segment of lineSegments(); track $index) {
+            <text
+              [attr.x]="segment.midpoint.x"
+              [attr.y]="segment.midpoint.y"
+              dy="-8"
+              class="fill-zinc-400 text-[9px] font-bold select-none pointer-events-none font-mono"
+              text-anchor="middle"
+              style="paint-order: stroke; stroke: #09090b; stroke-width: 4px; stroke-linejoin: round;">
+              {{ (segment.length * (unitSystem() === 'metric' ? 1 : 3.28084)).toFixed(2) }} {{ unitLabel() }}
+            </text>
+          }
+
+          <!-- Visual marker for the starting vertex -->
+          @if (points().length > 0) {
+            @let firstPoint = points()[0];
+            <rect 
+              [attr.x]="firstPoint.x - 6"
+              [attr.y]="firstPoint.y - 6"
+              width="12"
+              height="12"
+              class="fill-emerald-500 stroke-zinc-900 pointer-events-none shadow-lg"
+              stroke-width="1"
+              [attr.transform]="'rotate(45, ' + firstPoint.x + ', ' + firstPoint.y + ')'"
+            />
+          }
+        </g>
+        
+      </svg>
+
+      <!-- Coordinate Display Overlay -->
+      @if (mousePosition(); as mouse) {
+        <div class="absolute bottom-4 right-4 bg-zinc-900/80 backdrop-blur-md px-3 py-1.5 rounded-lg border border-zinc-800 shadow-2xl pointer-events-none flex gap-4 font-mono text-[10px] text-zinc-400">
+          <div class="flex items-center gap-1">
+            <span class="font-bold text-zinc-600">X:</span>
+            <span>{{ formatCoordinate(mouse.x) }}</span>
+          </div>
+          <div class="flex items-center gap-1">
+            <span class="font-bold text-zinc-600">Y:</span>
+            <span>{{ formatCoordinate(-mouse.y) }}</span> <!-- Invert Y for display -->
+          </div>
+        </div>
+      }
+      } @else {
+        <app-three-viewer
+          [points]="points()"
+          [isClosed]="isClosed()"
+          [drawnSalesAreas]="drawnSalesAreas()"
+          [customCorridors]="customCorridors()"
+          [walls]="walls()"
+          [divisionColorMap]="divisionColorMap()"
+          [pixelsPerMeter]="pixelsPerMeter()"
+          [unitSystem]="unitSystem()"
+          [sqUnitLabel]="sqUnitLabel()"
+        ></app-three-viewer>
+      }
+      
+      @if (points().length === 0 && viewMode() === '2d') {
+        <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <p class="text-zinc-800 text-2xl font-bold tracking-widest uppercase opacity-20">Architectural Canvas</p>
+        </div>
+      }
+    </div>
+
+    @if (divisions().length > 0 && showSalesAreas()) {
+      <div class="flex flex-wrap gap-x-6 gap-y-2 justify-center mt-4 p-4 bg-zinc-900 rounded-2xl border border-zinc-800 shadow-xl">
+        @for (division of divisions(); track division) {
+          <div class="flex items-center gap-2">
+            <div class="w-2 h-2 rounded-full shadow-sm" [style.background-color]="divisionColorMap().get(division)"></div>
+            <span class="text-[10px] font-bold uppercase tracking-widest text-zinc-400">{{ division }}</span>
+          </div>
+        }
+      </div>
+    }
+
+    <!-- Created Sections List -->
+    @if (drawnSalesAreas().length > 0) {
+      <div class="mt-4 bg-zinc-900 rounded-2xl overflow-hidden border border-zinc-800 shadow-2xl">
+        <div class="bg-zinc-800/50 px-6 py-4 border-b border-zinc-800 flex justify-between items-center">
+          <h3 class="text-xs font-bold uppercase tracking-widest text-zinc-100">Space Utilization Summary</h3>
+          <span class="text-[10px] uppercase tracking-widest font-bold text-zinc-500">{{ drawnSalesAreas().length }} Zones</span>
+        </div>
+        <div class="max-h-64 overflow-y-auto custom-scrollbar">
+          <table class="w-full text-left text-[11px]">
+            <thead class="bg-zinc-800/30 text-zinc-500 sticky top-0 backdrop-blur-md">
+              <tr>
+                <th class="px-6 py-3 font-bold uppercase tracking-wider">Section</th>
+                <th class="px-6 py-3 font-bold uppercase tracking-wider">Division</th>
+                <th class="px-6 py-3 font-bold uppercase tracking-wider text-right">Min ({{ sqUnitLabel() }})</th>
+                <th class="px-6 py-3 font-bold uppercase tracking-wider text-right">Max ({{ sqUnitLabel() }})</th>
+                <th class="px-6 py-3 font-bold uppercase tracking-wider text-right">Actual ({{ sqUnitLabel() }})</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-zinc-800">
+              @for (area of drawnSalesAreas(); track area.id) {
+                <tr class="hover:bg-zinc-800/50 transition-colors">
+                  <td class="px-6 py-3 text-zinc-100 font-bold">{{ area.name }}</td>
+                  <td class="px-6 py-3">
+                    <div class="flex items-center gap-2">
+                      <div class="w-1.5 h-1.5 rounded-full" [style.background-color]="divisionColorMap().get(area.division)"></div>
+                      <span class="text-zinc-400 uppercase tracking-tighter">{{ area.division }}</span>
+                    </div>
+                  </td>
+                  <td class="px-6 py-3 text-right text-zinc-500 font-mono">{{ (area.minArea * (unitSystem() === 'metric' ? 1 : 10.7639)).toFixed(1) }}</td>
+                  <td class="px-6 py-3 text-right text-zinc-500 font-mono">{{ (area.maxArea * (unitSystem() === 'metric' ? 1 : 10.7639)).toFixed(1) }}</td>
+                  <td class="px-6 py-3 text-right font-bold font-mono" [class.text-emerald-400]="area.actualAreaM2 >= area.minArea && area.actualAreaM2 <= area.maxArea" [class.text-amber-400]="area.actualAreaM2 < area.minArea || area.actualAreaM2 > area.maxArea">
+                    {{ (area.actualAreaM2 * (unitSystem() === 'metric' ? 1 : 10.7639)).toFixed(1) }}
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    }
+  </div>
+</main>
